@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Web Notepad</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f9f9f9;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #333;
+      color: #fff;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+    .container {
+      padding: 1rem;
+    }
+    .note-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .note-item {
+      background: #fff;
+      padding: 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 0 4px rgba(0,0,0,0.1);
+    }
+    .note-item:hover {
+      background: #f0f0f0;
+    }
+    .editor {
+      display: none;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    textarea {
+      width: 100%;
+      height: 300px;
+      padding: 0.75rem;
+      font-size: 1rem;
+      font-family: monospace;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      resize: vertical;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      border: none;
+      background: #333;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #555;
+    }
+    span{
+      font-size: 13px;
+      padding: 0.5rem 1rem;
+      border: none;
+      background: #333;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    span:hover{
+      background: #555;
+    }
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    label.upload {
+      background: #333;
+      color: white;
+      padding: 0.4rem 1rem 0 0;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .filename {
+      font-size: 0.9rem;
+      color: #666;
+    }
+
+    @media (max-width: 550px) {
+      header{
+        display: flex;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1 id="title">Web Notepad</h1>
+    <div class="actions">
+      <button onclick="createNote()">New Note</button>
+      <button onclick="downloadJSON()">Download JSON</button>
+      <label class="upload">
+        <!-- Upload Json -->
+        <span>Upload Json</span>
+        <input type="file" accept=".json" onchange="uploadJSON(event)" />
+      </label>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="home" class="note-list"></div>
+
+    <div id="editor" class="editor">
+      <input type="text" id="filename" placeholder="Filename" />
+      <textarea id="filecontent" placeholder="Start typing..."></textarea>
+      <div class="actions">
+        <button onclick="saveNote()">Save</button>
+        <button onclick="deleteNote()">Delete</button>
+        <button onclick="goHome()">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentFile = null;
+
+    function getNotes() {
+      const notes = localStorage.getItem('notes');
+      return notes ? JSON.parse(notes) : {};
+    }
+
+    function saveNotes(notes) {
+      localStorage.setItem('notes', JSON.stringify(notes));
+    }
+
+    function renderHome() {
+      const home = document.getElementById('home');
+      home.innerHTML = '';
+      const notes = getNotes();
+      Object.keys(notes).forEach(key => {
+        const item = document.createElement('div');
+        item.className = 'note-item';
+        item.innerHTML = `
+          <span>${key}</span>
+          <span class="filename">${new Date(notes[key].date).toLocaleString()}</span>
+        `;
+        item.onclick = () => openNote(key);
+        home.appendChild(item);
+      });
+    }
+
+    function goHome() {
+      document.getElementById('home').style.display = 'flex';
+      document.getElementById('editor').style.display = 'none';
+      currentFile = null;
+      renderHome();
+    }
+
+    function createNote() {
+      currentFile = null;
+      document.getElementById('filename').value = '';
+      document.getElementById('filecontent').value = '';
+      document.getElementById('home').style.display = 'none';
+      document.getElementById('editor').style.display = 'flex';
+    }
+
+    function openNote(name) {
+      const notes = getNotes();
+      currentFile = name;
+      document.getElementById('filename').value = name;
+      document.getElementById('filecontent').value = notes[name].content;
+      document.getElementById('home').style.display = 'none';
+      document.getElementById('editor').style.display = 'flex';
+    }
+
+    function saveNote() {
+      const name = document.getElementById('filename').value.trim();
+      const content = document.getElementById('filecontent').value;
+      if (!name) {
+        alert('Filename cannot be empty.');
+        return;
+      }
+      const notes = getNotes();
+      notes[name] = {
+        content,
+        date: new Date().toISOString()
+      };
+      saveNotes(notes);
+      goHome();
+    }
+
+    function deleteNote() {
+      if (!currentFile) {
+        alert('No file selected to delete.');
+        return;
+      }
+      const notes = getNotes();
+      delete notes[currentFile];
+      saveNotes(notes);
+      goHome();
+    }
+
+    function downloadJSON() {
+      const notes = getNotes();
+      const blob = new Blob([JSON.stringify(notes, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'notes_backup.json';
+      a.click();
+    }
+
+    function uploadJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const uploaded = JSON.parse(e.target.result);
+          const notes = getNotes();
+          const merged = { ...notes, ...uploaded };
+          saveNotes(merged);
+          renderHome();
+          alert('Notes imported successfully.');
+        } catch (e) {
+          alert('Invalid JSON file.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Initial load
+    goHome();
+  </script>
+
+</body>
+</html>
